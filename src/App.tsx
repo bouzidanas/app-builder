@@ -1,33 +1,68 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { WebContainer } from "@webcontainer/api";
 import './App.css'
+import { useEffect, useRef, useState } from "react";
+
+// const reportOutput = (output: string) => {
+//     console.log(output);
+// }
+
+const CommandTerminal = () => {
+  const [command, setCommand] = useState(''); // command state
+  const [output, setOutput] = useState(''); // output state
+
+  const containerRef = useRef<WebContainer | null>(null);
+
+  useEffect(() => {
+    async function bootWebContainer() {
+      setOutput((previousOutput) => previousOutput + "\n\n Booting WebContainer...");
+      containerRef.current = await WebContainer.boot();
+      setOutput((previousOutput) => previousOutput + "\n\n WebContainer booted!");
+
+      const process = await containerRef.current.spawn("node", ["-v"]);
+
+      process.output.pipeTo(new WritableStream({
+          write(chunk) {
+              setOutput((previousOutput) => previousOutput + "\n\n Process output: " + chunk);
+          }
+      }));
+
+      if (await process.exit) {
+          setOutput((previousOutput) => previousOutput + "\n\n Process failed and exited with code: " + process.exit);
+      } else {
+          setOutput((previousOutput) => previousOutput + "\n\n Process succeeded and exited with code: " + process.exit);
+      }
+    }
+    if (containerRef.current === null) bootWebContainer();
+
+    return () => {
+      if (containerRef.current) {
+        containerRef.current = null;
+      }
+    }
+  }, []);
+
+  return (
+    <div>
+      <input
+        type="text"
+        value={command}
+        onChange={(e) => setCommand(e.target.value)}
+      />
+      <button>
+        Run
+      </button>
+      <div>
+        {output}
+      </div>
+    </div>
+  );
+}
 
 function App() {
-  const [count, setCount] = useState(0)
 
   return (
     <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <CommandTerminal />
     </>
   )
 }
